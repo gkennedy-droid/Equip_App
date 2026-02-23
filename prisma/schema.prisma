@@ -1,0 +1,119 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum EquipmentStatus {
+  ACTIVE
+  INACTIVE
+  RETIRED
+}
+
+enum StoplightStatus {
+  GREEN
+  YELLOW
+  RED
+}
+
+enum WorkOrderStatus {
+  OPEN
+  IN_PROGRESS
+  COMPLETED
+}
+
+model Role {
+  id    Int    @id @default(autoincrement())
+  name  String @unique
+  users User[]
+}
+
+model User {
+  id           String          @id @default(cuid())
+  email        String          @unique
+  passwordHash String
+  fullName     String
+  roleId       Int
+  role         Role            @relation(fields: [roleId], references: [id])
+  leads        TeamLeader[]
+  inspections  Inspection[]
+  notifications NotificationSetting[]
+  createdAt    DateTime        @default(now())
+}
+
+model TeamLeader {
+  id          String      @id @default(cuid())
+  userId      String
+  user        User        @relation(fields: [userId], references: [id])
+  equipmentId String
+  equipment   Equipment   @relation(fields: [equipmentId], references: [id])
+  assignedAt  DateTime    @default(now())
+
+  @@unique([userId, equipmentId])
+}
+
+model Equipment {
+  id            String        @id @default(cuid())
+  assetTag      String        @unique
+  name          String
+  model         String
+  serialNumber  String?
+  location      String
+  status        EquipmentStatus @default(ACTIVE)
+  leaders       TeamLeader[]
+  inspections   Inspection[]
+  createdAt     DateTime      @default(now())
+}
+
+model Template {
+  id          String      @id @default(cuid())
+  name        String      @unique
+  description String?
+  items       TemplateItem[]
+  createdAt   DateTime    @default(now())
+}
+
+model TemplateItem {
+  id         String    @id @default(cuid())
+  templateId String
+  template   Template  @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  label      String
+  required   Boolean   @default(true)
+}
+
+model Inspection {
+  id          String         @id @default(cuid())
+  equipmentId String
+  equipment   Equipment      @relation(fields: [equipmentId], references: [id])
+  inspectorId String
+  inspector   User           @relation(fields: [inspectorId], references: [id])
+  templateId  String?
+  template    Template?      @relation(fields: [templateId], references: [id])
+  status      StoplightStatus
+  notes       String?
+  createdAt   DateTime       @default(now())
+  workOrder   WorkOrder?
+}
+
+model WorkOrder {
+  id            String          @id @default(cuid())
+  inspectionId  String          @unique
+  inspection    Inspection      @relation(fields: [inspectionId], references: [id])
+  summary       String
+  status        WorkOrderStatus @default(OPEN)
+  createdAt     DateTime        @default(now())
+}
+
+model NotificationSetting {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id])
+  emailEnabled  Boolean  @default(true)
+  smsEnabled    Boolean  @default(false)
+  redAlertOnly  Boolean  @default(true)
+
+  @@unique([userId])
+}
